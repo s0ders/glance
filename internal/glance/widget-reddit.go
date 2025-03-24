@@ -25,10 +25,10 @@ var (
 type redditWidget struct {
 	logger              *slog.Logger
 	widgetBase          `yaml:",inline"`
-	redditAccessToken   string
-	redditAppName       string            `yaml:"reddit-app-name"`
-	redditClientID      string            `yaml:"reddit-client-id"`
-	redditClientSecret  string            `yaml:"reddit-client-secret"`
+	RedditAccessToken   string
+	RedditAppName       string            `yaml:"reddit-app-name"`
+	RedditClientID      string            `yaml:"reddit-client-id"`
+	RedditClientSecret  string            `yaml:"reddit-client-secret"`
 	Posts               forumPostList     `yaml:"-"`
 	Subreddit           string            `yaml:"subreddit"`
 	Proxy               proxyOptionsField `yaml:"proxy"`
@@ -54,13 +54,13 @@ type redditTokenResponse struct {
 
 func (widget *redditWidget) fetchRedditAccessToken() error {
 	// Only execute if a matching configuration is provider
-	if widget.redditAppName == "" || widget.redditClientID == "" || widget.redditClientSecret == "" {
+	if widget.RedditAppName == "" || widget.RedditClientID == "" || widget.RedditClientSecret == "" {
 		return nil
 	}
 
-	widget.logger.Info("Found reddit API credentials", "app-name", widget.redditAppName, "client-id", widget.redditClientID, "client-secret", widget.redditClientSecret)
+	widget.logger.Info("Found reddit API credentials", "app-name", widget.RedditAppName, "client-id", widget.RedditClientID, "client-secret", widget.RedditClientSecret)
 
-	auth := base64.StdEncoding.EncodeToString([]byte(widget.redditClientID + ":" + widget.redditClientSecret))
+	auth := base64.StdEncoding.EncodeToString([]byte(widget.RedditClientID + ":" + widget.RedditClientSecret))
 
 	// Prepare form data
 	data := url.Values{}
@@ -74,7 +74,7 @@ func (widget *redditWidget) fetchRedditAccessToken() error {
 
 	// Set headers
 	req.Header.Add("Authorization", "Basic "+auth)
-	req.Header.Add("User-Agent", fmt.Sprintf("%s/1.0", widget.redditAppName))
+	req.Header.Add("User-Agent", fmt.Sprintf("%s/1.0", widget.RedditAppName))
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
 	// Make the request
@@ -103,7 +103,7 @@ func (widget *redditWidget) fetchRedditAccessToken() error {
 		return fmt.Errorf("unmarshalling Reddit API response: %w", err)
 	}
 
-	widget.redditAccessToken = tokenResp.AccessToken
+	widget.RedditAccessToken = tokenResp.AccessToken
 
 	widget.logger.Info("Successfully fetched Reddit access token", "access-token", tokenResp.AccessToken)
 
@@ -178,8 +178,8 @@ func (widget *redditWidget) update(ctx context.Context) {
 		widget.RequestUrlTemplate,
 		widget.Proxy.client,
 		widget.ShowFlairs,
-		widget.redditAppName,
-		widget.redditAccessToken,
+		widget.RedditAppName,
+		widget.RedditAccessToken,
 	)
 
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
@@ -261,6 +261,9 @@ func fetchSubredditPosts(
 	query := url.Values{}
 	var requestUrl string
 
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	logger.Info("Fetching subreddit posts", "app-name", redditAppName)
+
 	if search != "" {
 		query.Set("q", search+" subreddit:"+subreddit)
 		query.Set("sort", sort)
@@ -274,6 +277,7 @@ func fetchSubredditPosts(
 
 	if redditAccessToken != "" {
 		baseURL = "https://oauth.reddit.com"
+		logger.Info("using oauth url")
 	} else {
 		baseURL = "https://www.reddit.com"
 	}
@@ -302,6 +306,7 @@ func fetchSubredditPosts(
 		setBrowserUserAgentHeader(request)
 	} else {
 		request.Header.Set("User-Agent", fmt.Sprintf("%s/1.0", redditAppName))
+		logger.Info("setting app user agent", "app-name", redditAppName)
 	}
 
 	if redditAccessToken != "" {

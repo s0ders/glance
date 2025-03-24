@@ -9,8 +9,10 @@ import (
 	"html"
 	"html/template"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 )
@@ -21,6 +23,7 @@ var (
 )
 
 type redditWidget struct {
+	logger              *slog.Logger
 	widgetBase          `yaml:",inline"`
 	redditAccessToken   string
 	redditAppName       string            `yaml:"reddit-app-name"`
@@ -54,6 +57,8 @@ func (widget *redditWidget) fetchRedditAccessToken() error {
 	if widget.redditAppName == "" || widget.redditClientID == "" || widget.redditClientSecret == "" {
 		return nil
 	}
+
+	widget.logger.Info("Found reddit API credentials", "app-name", widget.redditAppName, "client-id", widget.redditClientID, "client-secret", widget.redditClientSecret)
 
 	auth := base64.StdEncoding.EncodeToString([]byte(widget.redditClientID + ":" + widget.redditClientSecret))
 
@@ -100,6 +105,8 @@ func (widget *redditWidget) fetchRedditAccessToken() error {
 
 	widget.redditAccessToken = tokenResp.AccessToken
 
+	widget.logger.Info("Successfully fetched Reddit access token", "access-token", tokenResp.AccessToken)
+
 	return nil
 }
 
@@ -129,6 +136,8 @@ func (widget *redditWidget) initialize() error {
 			return errors.New("no `{REQUEST-URL}` placeholder specified")
 		}
 	}
+
+	widget.logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	if err := widget.fetchRedditAccessToken(); err != nil {
 		return fmt.Errorf("fetching Reddit API access token: %w", err)
